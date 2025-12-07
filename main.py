@@ -1,19 +1,14 @@
 import asyncio
-import random
-from data_loader import load_data
+from data_loader import connect_db, load_random_task
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
-from time import sleep
+from os import getenv
 
 """ data loading; configurations; main_functions initialization """
-data = asyncio.run(load_data())
-if not data:
-    print("Остановка бота")
-    exit()
 
-TOKEN = "8026787503:AAELtcIvwOwGnasgT-NQP03Y-60GmldUPe8"
+TOKEN = getenv("BOT_TOKEN")
 
 dp = Dispatcher()
 """"""
@@ -24,7 +19,13 @@ class UserStates(StatesGroup):
     waiting_for_question = State()
 
 async def get_random_question():
-    return random.choice(data)
+    conn = await connect_db()
+    if not conn:
+        print("Data loading failed. Bot was stopped")
+        exit()
+    question = await load_random_task(conn)
+    return question
+
 """"""
 
 """ keyboards """
@@ -102,10 +103,18 @@ async def check_answer(message: types.Message, state:FSMContext):
     else:
         state_data = await state.get_data()
         question = state_data['question']
-        user_answer = set([i for i in message.text.strip().lower()])
-        correct_answer = set([i for i in question['answer']])
+        user_answer = [i for i in message.text.strip().lower()]
+        correct_answer = [i for i in question['answer'].strip().lower()]
 
-        if user_answer == correct_answer: await message.answer("Верно!", reply_markup=stop_keyboard)
+        if set(user_answer) == set(correct_answer):
+            if str(question['task_type_id']) not in ('3', '6'):
+                await message.answer("Верно!", reply_markup=stop_keyboard)
+            else:
+                if user_answer == correct_answer:
+                    await message.answer("Верно!", reply_markup=stop_keyboard)
+                else:
+                    await message.answer(f"Правильный ответ: {question['answer']}", reply_markup=stop_keyboard)
+
         else: await message.answer(f"Правильный ответ: {question['answer']}", reply_markup=stop_keyboard)
 
         await handle_random_questions_button(message, state)

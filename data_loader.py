@@ -1,12 +1,11 @@
 import asyncpg
 from os import getenv
 
-from asyncpg import RaiseError
 from dotenv import load_dotenv
 
 load_dotenv()
 
-async def load_data():
+async def connect_db():
     try:
         conn = await asyncpg.connect(
             host=getenv('DB_HOST'),
@@ -15,12 +14,18 @@ async def load_data():
             password=getenv('DB_PASSWORD'),
             database=getenv('DB_NAME')
         )
-        print("Подключен к ДБ")
-
-        rows = await conn.fetch("SELECT * FROM tasks")
-
-        return rows
+        return conn
     except:
         print("Проблемы с загрузкой данных")
         return False
+
+async def load_random_task(conn):
+    query = "SELECT * FROM tasks TABLESAMPLE SYSTEM (1) LIMIT 1"
+    row = await conn.fetchrow(query)
+    if row is None:
+        row = await conn.fetchrow(
+            "SELECT * FROM tasks ORDER BY RANDOM() LIMIT 1"
+        )
+    return dict(row)
+
 
