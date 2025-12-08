@@ -1,13 +1,15 @@
 import asyncio
-from data_loader import connect_db, load_random_task
+from data_loader import Database
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from os import getenv
+from dotenv import load_dotenv
+load_dotenv()
 
 """ data loading; configurations; main_functions initialization """
-
+DB = Database()
 TOKEN = getenv("BOT_TOKEN")
 
 dp = Dispatcher()
@@ -19,11 +21,7 @@ class UserStates(StatesGroup):
     waiting_for_question = State()
 
 async def get_random_question():
-    conn = await connect_db()
-    if not conn:
-        print("Data loading failed. Bot was stopped")
-        exit()
-    question = await load_random_task(conn)
+    question = await DB.get_random_task()
     return question
 
 """"""
@@ -123,6 +121,8 @@ async def check_answer(message: types.Message, state:FSMContext):
 
 """ run the bot """
 async def main() -> None:
+    await DB.connect()
+
     bot = Bot(token=TOKEN)
     await dp.start_polling(bot)
 

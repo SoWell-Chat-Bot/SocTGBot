@@ -1,31 +1,34 @@
 import asyncpg
 from os import getenv
 
-from dotenv import load_dotenv
 
-load_dotenv()
+class Database:
+    def __init__(self):
+        self.pool = None
 
-async def connect_db():
-    try:
-        conn = await asyncpg.connect(
+    async def connect(self):
+        self.pool = await asyncpg.create_pool(
             host=getenv('DB_HOST'),
             port=getenv('DB_PORT'),
             user=getenv('DB_USER'),
             password=getenv('DB_PASSWORD'),
             database=getenv('DB_NAME')
         )
-        return conn
-    except:
-        print("Проблемы с загрузкой данных")
-        return False
+        print("База данных подключена")
 
-async def load_random_task(conn):
-    query = "SELECT * FROM tasks TABLESAMPLE SYSTEM (1) LIMIT 1"
-    row = await conn.fetchrow(query)
-    if row is None:
-        row = await conn.fetchrow(
-            "SELECT * FROM tasks ORDER BY RANDOM() LIMIT 1"
-        )
-    return dict(row)
+    async def get_random_task(self):
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT * FROM tasks TABLESAMPLE SYSTEM (1) LIMIT 1"
+            )
+            if not row:
+                row = await conn.fetchrow(
+                    "SELECT * FROM tasks ORDER BY RANDOM() LIMIT 1"
+                )
+            return row
+
+    async def close(self):
+        if self.pool:
+            await self.pool.close()
 
 
